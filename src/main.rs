@@ -1,4 +1,5 @@
 use axum::{Router, routing::get};
+use tokio::signal;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
 
@@ -37,10 +38,36 @@ async fn main() {
         .layer(TraceLayer::new_for_http());
 
     let listener = tokio::net::TcpListener::bind(host_port).await.unwrap();
-    let _ = axum::serve(listener, app).await;
+    let _ = axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await;
 }
 
 // basic handler that responds with a static string
 async fn root() -> &'static str {
     "Hello, World!"
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
 }
