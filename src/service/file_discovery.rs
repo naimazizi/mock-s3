@@ -2,19 +2,20 @@ use axum::{Router, extract::State, handler::HandlerWithoutStateExt, http::Status
 use tokio::fs;
 use tower_http::services::ServeDir;
 
-use crate::{AppJson, AppState, error::ServiceError};
+use crate::{AppState, error::ServiceError, response::ResponseJson};
 
 pub fn serve_file_discovery(state: AppState) -> Router {
-    let dir = state.env.asset_dir;
+    let dir = &state.env.asset_dir;
+    let asset_path = &state.env.asset_path;
     let service_404 = handle_404_asset.into_service();
 
     let serve_dir_assets = ServeDir::new(dir).not_found_service(service_404);
-    Router::new().nest_service("/assets", serve_dir_assets)
+    Router::new().nest_service(asset_path.as_str(), serve_dir_assets)
 }
 
 pub async fn list_all_files(
     State(state): State<AppState>,
-) -> Result<AppJson<Vec<String>>, ServiceError> {
+) -> Result<ResponseJson<Vec<String>>, ServiceError> {
     let dir = &state.env.asset_dir;
 
     let entries = fs::read_dir(dir).await;
@@ -53,7 +54,7 @@ pub async fn list_all_files(
         });
     }
 
-    Ok(AppJson(result))
+    Ok(ResponseJson(result))
 }
 
 async fn handle_404_asset() -> (StatusCode, &'static str) {

@@ -1,38 +1,18 @@
-use axum::{
-    Router,
-    extract::FromRequest,
-    response::{IntoResponse, Response},
-    routing::get,
-};
+use axum::{Router, routing::get};
 use tokio::signal;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
 
-use crate::{
-    error::ServiceError,
-    service::file_discovery::{list_all_files, serve_file_discovery},
-};
+use crate::service::file_discovery::{list_all_files, serve_file_discovery};
 
 pub mod config;
 pub mod error;
+pub mod response;
 pub mod service;
 
 #[derive(Clone)]
 pub struct AppState {
     pub env: config::Config,
-}
-
-#[derive(FromRequest)]
-#[from_request(via(axum::Json), rejection(ServiceError))]
-pub struct AppJson<T>(T);
-
-impl<T> IntoResponse for AppJson<T>
-where
-    axum::Json<T>: IntoResponse,
-{
-    fn into_response(self) -> Response {
-        axum::Json(self.0).into_response()
-    }
 }
 
 #[tokio::main]
@@ -57,7 +37,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(root))
-        .route("/list-assets", get(list_all_files))
+        .route(&config.list_assets_path, get(list_all_files))
         .with_state(state.clone())
         .merge(serve_file_discovery(state.clone()))
         .layer(TraceLayer::new_for_http());

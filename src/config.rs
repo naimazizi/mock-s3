@@ -4,6 +4,8 @@ pub struct Config {
     pub app_host: String,
     pub app_port: String,
     pub asset_dir: String,
+    pub asset_path: String,
+    pub list_assets_path: String,
 }
 
 impl Config {
@@ -12,11 +14,15 @@ impl Config {
         let app_host = std::env::var("APP_HOST").unwrap_or("0.0.0.0".to_string());
         let app_port = std::env::var("APP_PORT").unwrap_or("8080".to_string());
         let asset_dir = std::env::var("ASSET_DIR").unwrap_or("assets".to_string());
+        let asset_path = "/assets".to_string();
+        let list_assets_path = "/list-assets".to_string();
         Config {
             app_name,
             app_host,
             app_port,
             asset_dir,
+            asset_path,
+            list_assets_path,
         }
     }
 }
