@@ -15,18 +15,36 @@ pub fn serve_file_discovery(state: AppState) -> Router {
 pub async fn list_all_files(
     State(state): State<AppState>,
 ) -> Result<AppJson<Vec<String>>, ServiceError> {
-    let dir = state.env.asset_dir;
+    let dir = &state.env.asset_dir;
 
     let entries = fs::read_dir(dir).await;
     let mut result: Vec<String> = Vec::new();
 
-    match entries {
-        Ok(mut entry) => {
-            while let Some(entry) = entry.next_entry().await.unwrap() {
-                result.push(entry.file_name().into_string().unwrap())
+    let mut read_dir = match entries {
+        Ok(rd) => rd,
+        Err(e) => {
+            return Err(ServiceError::NotFound {
+                msg: format!("Failed to read directory {}: {}", dir, e),
+            });
+        }
+    };
+
+    loop {
+        match read_dir.next_entry().await {
+            Ok(Some(entry)) => {
+                let file_name = entry.file_name();
+                match file_name.into_string() {
+                    Ok(name) => result.push(name),
+                    Err(os_str) => result.push(os_str.to_string_lossy().into_owned()),
+                }
+            }
+            Ok(None) => break,
+            Err(e) => {
+                return Err(ServiceError::NotFound {
+                    msg: format!("Failed to read directory entry: {}", e),
+                });
             }
         }
-        Err(_e) => {}
     }
 
     if result.is_empty() {
